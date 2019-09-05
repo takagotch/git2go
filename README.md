@@ -16,26 +16,58 @@ type Patch struct {
   ptr *C.git_patch
 }
 
-func newPatchFromC(ptr *C.git_pathc) *Patch {
+func newPatchFrom(ptr *C.git_patch) *Patch {
   if ptr == nil {
-    return nil
+    return
   }
   
-  patch := &Patch(
+  patch := &Patch{
     ptr: ptr,
-  )
+  }
   
   runtime.SetFinalizer(patch, (*Patch).Free)
   return patch
 }
 
+func (patch *Patch) Free() error {
+  if patch.ptr == nil {
+    return ErrInvalid
+  }
+  runtime.SetFinalizer(patch, nil)
+  C.git_patch_free(patch.ptr)
+  patch.ptr = nil
+  return nil
+}
 
+func (patch *Patch) String() (string, error) {
+  if patch.ptr == nil {
+    return "", ErrInvalid
+  }
+  
+  runtime.LockOSThread()
+  defer runtime.UnlockOSThread()
+  
+  var buf C.git_buf
+  
+  ecode := C.get_patch_to_buf(&buf, patch.ptr)
+  runtime.KeepAlive(patch)
+  if ecode < 0 {
+    return "", MakeGitError(ecode)
+  }
+  defer C.git_buf_dispose(&buf)
+  
+  return C.GoString(buf.ptr), nil
+  
+}
 
-
-
-
-
-
+func toPointer(data []byte) (ptr unsafe.Pointer) {
+  if len(data) > 0 {
+    ptr = unsafe.Pointer(&data[0])
+  } else {
+    ptr = unsafe.Pointer(nil)
+  }
+  return
+}
 
 func (v *Repository) PatchFromBuffers(oldPath, newPath string, oldBuf, newBuf []byte, opts *DiffOptions) (*Patch, error) {
   var patchPtr *C.git_patch
