@@ -33,6 +33,10 @@ func newPatchFromC(ptr *C.git_pathc) *Patch {
 
 
 
+
+
+
+
 func (v *Repository) PatchFromBuffers(oldPath, newPath string, oldBuf, newBuf []byte, opts *DiffOptions) (*Patch, error) {
   var patchPtr *C.git_patch
   
